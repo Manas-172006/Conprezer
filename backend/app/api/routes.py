@@ -34,7 +34,7 @@ def resolve_conversion_owner(
 ) -> ConversionOwner:
     if user is not None:
         return ConversionOwner(user_id=user.id, anon_id=None)
-    if not settings.guest_mode:
+    if not settings.GUEST_MODE:
         raise HTTPException(status_code=401, detail="Sign in to continue")
 
     anon_id = request.cookies.get(ANON_COOKIE)
@@ -129,7 +129,7 @@ def logout(response: Response) -> Response:
 @router.get("/config")
 def public_config() -> dict[str, bool | int]:
     return {
-        "guest_mode": settings.guest_mode,
+        "guest_mode": settings.GUEST_MODE,
         "guest_job_ttl_hours": settings.guest_job_ttl_hours,
     }
 
@@ -179,7 +179,7 @@ async def guest_convert(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> ConversionResponse:
-    if not settings.guest_mode:
+    if not settings.GUEST_MODE:
         raise HTTPException(status_code=404, detail="Guest mode is disabled")
     filename = Path(file.filename or "").name
     extension = Path(filename).suffix.lower()
@@ -208,7 +208,7 @@ def guest_status(
     response: Response,
     db: Session = Depends(get_db),
 ) -> ConversionResponse:
-    if not settings.guest_mode:
+    if not settings.GUEST_MODE:
         raise HTTPException(status_code=404, detail="Guest mode is disabled")
     owner = resolve_conversion_owner(request, response, None)
     conversion = db.get(Conversion, job_id)
@@ -224,7 +224,7 @@ def guest_download(
     response: Response,
     db: Session = Depends(get_db),
 ) -> FileResponse:
-    if not settings.guest_mode:
+    if not settings.GUEST_MODE:
         raise HTTPException(status_code=404, detail="Guest mode is disabled")
     owner = resolve_conversion_owner(request, response, None)
     conversion = db.get(Conversion, job_id)
