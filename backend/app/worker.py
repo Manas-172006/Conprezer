@@ -76,7 +76,7 @@ def cleanup_expired_guest_jobs() -> None:
         expired = db.scalars(
             select(Conversion).where(
                 Conversion.anon_id.is_not(None),
-                Conversion.expires_at <= datetime.utcnow(),
+                Conversion.ttl <= datetime.utcnow(),
                 Conversion.status != "processing",
             )
         ).all()

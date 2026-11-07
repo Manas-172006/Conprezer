@@ -31,10 +31,12 @@ def upgrade() -> None:
         sa.Column("output_url", sa.String(length=512), nullable=True),
         sa.Column("original_size", sa.BigInteger(), nullable=False),
         sa.Column("output_size", sa.BigInteger(), nullable=True),
+        sa.Column("ttl", sa.TIMESTAMP(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
         sa.Index("ix_conversions_user_id", "user_id"),
         sa.Index("ix_conversions_status", "status"),
     )
+    op.execute("DELETE FROM conversions WHERE ttl < NOW()")
     op.create_table(
         "user_preferences",
         sa.Column("id", sa.Integer(), primary_key=True),

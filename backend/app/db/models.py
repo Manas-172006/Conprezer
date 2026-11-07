@@ -31,7 +31,7 @@ class Conversion(Base):
     original_size: Mapped[int] = mapped_column(BigInteger)
     output_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ttl: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     user: Mapped[User] = relationship(back_populates="conversions")
 
 

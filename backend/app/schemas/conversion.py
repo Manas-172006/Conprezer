@@ -14,4 +14,5 @@ class ConversionResponse(BaseModel):
     output_size: int | None
     created_at: datetime
     expires_at: datetime | None = None
+    ttl: datetime | None = None
     download_url: str | None = None

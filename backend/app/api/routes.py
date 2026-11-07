@@ -72,7 +72,8 @@ def conversion_response(conversion: Conversion) -> ConversionResponse:
         original_size=conversion.original_size,
         output_size=conversion.output_size,
         created_at=conversion.created_at,
-        expires_at=conversion.expires_at,
+        expires_at=conversion.ttl,
+        ttl=conversion.ttl,
         download_url=download_url,
     )
 
@@ -258,7 +259,7 @@ async def queue_conversion(
     stored_name = f"{secrets.token_urlsafe(24)}{Path(filename).suffix.lower()}"
     input_path = settings.upload_dir / stored_name
     input_path.write_bytes(data)
-    expires_at = (
+    ttl = (
         datetime.utcnow() + timedelta(hours=settings.guest_job_ttl_hours)
         if owner.anon_id is not None
         else None
@@ -271,7 +272,7 @@ async def queue_conversion(
         status="pending",
         input_url=stored_name,
         original_size=len(data),
-        expires_at=expires_at,
+        ttl=ttl,
     )
     db.add(conversion)
     db.commit()
@@ -294,7 +295,7 @@ def history(
         query = query.where(
             Conversion.user_id.is_(None),
             Conversion.anon_id == owner.anon_id,
-            Conversion.expires_at > datetime.utcnow(),
+            Conversion.ttl > datetime.utcnow(),
         )
     conversions = db.scalars(query.order_by(Conversion.created_at.desc()).limit(100))
     return [conversion_response(item) for item in conversions]
@@ -346,6 +347,6 @@ def owns_conversion(conversion: Conversion | None, owner: ConversionOwner) -> bo
     return (
         conversion.user_id is None
         and conversion.anon_id == owner.anon_id
-        and conversion.expires_at is not None
-        and conversion.expires_at > datetime.utcnow()
+        and conversion.ttl is not None
+        and conversion.ttl > datetime.utcnow()
     )
