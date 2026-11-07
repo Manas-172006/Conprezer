@@ -21,7 +21,8 @@ class Conversion(Base):
     __tablename__ = "conversions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    anon_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
     input_type: Mapped[str] = mapped_column(String(16))
     output_type: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(16), index=True, default="pending")
@@ -30,6 +31,7 @@ class Conversion(Base):
     original_size: Mapped[int] = mapped_column(BigInteger)
     output_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     user: Mapped[User] = relationship(back_populates="conversions")
 
 

@@ -1,6 +1,6 @@
 import logging
 import time
-from pathlib import Path
+from datetime import datetime
 
 from sqlalchemy import select, update
 
@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def process_one() -> bool:
+    cleanup_expired_guest_jobs()
     with SessionLocal() as db:
         conversion = db.scalar(
             select(Conversion)
@@ -68,6 +69,24 @@ def process_one() -> bool:
             )
             db.commit()
     return True
+
+
+def cleanup_expired_guest_jobs() -> None:
+    with SessionLocal() as db:
+        expired = db.scalars(
+            select(Conversion).where(
+                Conversion.anon_id.is_not(None),
+                Conversion.expires_at <= datetime.utcnow(),
+                Conversion.status != "processing",
+            )
+        ).all()
+        for conversion in expired:
+            (settings.upload_dir / conversion.input_url).unlink(missing_ok=True)
+            if conversion.output_url:
+                (settings.output_dir / conversion.output_url).unlink(missing_ok=True)
+            db.delete(conversion)
+        if expired:
+            db.commit()
 
 
 def main() -> None:

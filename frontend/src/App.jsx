@@ -15,6 +15,9 @@ async function request(path, options = {}) {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [guest, setGuest] = useState(false);
+  const [guestModeEnabled, setGuestModeEnabled] = useState(false);
+  const [guestJobTtlHours, setGuestJobTtlHours] = useState(24);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signup, setSignup] = useState(false);
@@ -38,14 +41,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    request("/api/config").then((config) => {
+      setGuestModeEnabled(config.guest_mode);
+      setGuestJobTtlHours(config.guest_job_ttl_hours);
+    }).catch((err) => {
+      setError(err.message);
+    });
     request("/api/auth/me").then(setUser).catch((err) => {
       if (err.status !== 401) setError(err.message);
     });
   }, []);
 
   useEffect(() => {
-    if (user) loadHistory();
-  }, [user, loadHistory]);
+    if (user || guest) loadHistory();
+  }, [user, guest, loadHistory]);
 
   useEffect(() => {
     const pending = history.some((item) => ["pending", "processing"].includes(item.status));
@@ -107,7 +116,7 @@ export default function App() {
     setHistory([]);
   }
 
-  if (!user) {
+  if (!user && !guest) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md items-center px-5">
         <form onSubmit={submitAuth} className="w-full rounded-3xl bg-white p-8 shadow-xl shadow-slate-200/60">
@@ -123,6 +132,11 @@ export default function App() {
           <button type="button" onClick={() => { setSignup(!signup); setError(""); }} className="mt-4 w-full text-sm text-slate-600 hover:text-indigo-600">
             {signup ? "Already have an account? Sign in" : "New here? Create an account"}
           </button>
+          {guestModeEnabled && (
+            <button type="button" onClick={() => { setGuest(true); setError(""); }} className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-600">
+              Continue as guest
+            </button>
+          )}
         </form>
       </main>
     );
@@ -135,9 +149,13 @@ export default function App() {
           <p className="text-sm font-bold uppercase tracking-widest text-indigo-600">Conprezer</p>
           <h1 className="mt-2 text-3xl font-bold md:text-4xl">PDF tools, privately.</h1>
         </div>
-        <button onClick={logout} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-white">Sign out</button>
+        {user
+          ? <button onClick={logout} className="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-white">Sign out</button>
+          : <button onClick={() => { setGuest(false); setHistory([]); setError(""); }} className="rounded-lg px-3 py-2 text-sm text-indigo-600 hover:bg-white">Sign in</button>}
       </header>
-      <p className="mt-3 text-slate-500">Signed in as {user.email}. Uploads are limited to 25 MiB.</p>
+      <p className="mt-3 text-slate-500">
+        {user ? `Signed in as ${user.email}.` : `Using guest mode. Your job and download are available for ${guestJobTtlHours} hours.`} Uploads are limited to 25 MiB.
+      </p>
       <section className="mt-9 grid gap-4 md:grid-cols-2">
         <button onClick={() => chooseFile("convert")} disabled={loading} className="rounded-2xl bg-indigo-600 p-7 text-left text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:bg-indigo-700 disabled:opacity-60">
           <span className="text-2xl">DOCX → PDF</span>
@@ -154,7 +172,7 @@ export default function App() {
       {error && <p role="alert" className="mt-5 text-sm text-red-600">{error}</p>}
       <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm shadow-slate-200/70 md:p-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">Your history</h2>
+          <h2 className="text-xl font-bold">{guest ? "Guest jobs" : "Your history"}</h2>
           <button onClick={loadHistory} className="text-sm font-medium text-indigo-600 hover:text-indigo-800">Refresh</button>
         </div>
         <History items={history} loading={loading && !history.length} onDownload={(url) => window.open(url, "_blank", "noopener,noreferrer")} />
