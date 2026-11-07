@@ -10,7 +10,7 @@ def main() -> None:
         cwd=BACKEND_DIR,
         check=True,
     )
-    print("Database migrations applied successfully.")
+    print("DB migrated")
 
 
 if __name__ == "__main__":

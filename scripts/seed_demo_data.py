@@ -1,40 +1,21 @@
-from secrets import token_urlsafe
-from pathlib import Path
-
 from _common import BACKEND_DIR  # noqa: F401
-from app.core.config import settings
 from app.db.models import Conversion, User
 from app.db.session import SessionLocal
-from app.services.passwords import hash_password
-from fpdf import FPDF
 from sqlalchemy import select
 
 
-DEMO_EMAILS = ("demo1@conprezer.local", "demo2@conprezer.local")
-
-
-def create_sample_pdf(path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", size=16)
-    pdf.cell(text="Conprezer demo conversion")
-    pdf.output(str(path))
+DEMO_EMAILS = ("demo1@example.com", "demo2@example.com")
+PASSWORD_HASH_PLACEHOLDER = "password-hash-placeholder"
 
 
 def main() -> None:
-    passwords = {email: token_urlsafe(24) for email in DEMO_EMAILS}
-    settings.output_dir.mkdir(parents=True, exist_ok=True)
-
     with SessionLocal() as db:
         users: dict[str, User] = {}
         for email in DEMO_EMAILS:
             user = db.scalar(select(User).where(User.email == email))
             if user is None:
-                user = User(email=email, password_hash=hash_password(passwords[email]))
+                user = User(email=email, password_hash=PASSWORD_HASH_PLACEHOLDER)
                 db.add(user)
-            else:
-                user.password_hash = hash_password(passwords[email])
             users[email] = user
         db.commit()
         for user in users.values():
@@ -45,36 +26,28 @@ def main() -> None:
             select(Conversion)
             .where(
                 Conversion.user_id == demo_user.id,
-                Conversion.input_type == "docx",
-                Conversion.output_type == "pdf",
+                Conversion.input_type == "pdf",
+                Conversion.output_type == "docx",
                 Conversion.status == "completed",
             )
             .order_by(Conversion.id)
             .limit(1)
         )
         if conversion is None:
-            output_name = f"demo-{demo_user.id}.pdf"
-            conversion = Conversion(
+            db.add(Conversion(
                 user_id=demo_user.id,
-                input_type="docx",
-                output_type="pdf",
+                input_type="pdf",
+                output_type="docx",
                 status="completed",
-                input_url="demo.docx",
-                output_url=output_name,
-                original_size=1024,
+                input_url="demo/sample.pdf",
+                output_url="demo/sample.docx",
+                original_size=0,
                 output_size=0,
-            )
-            create_sample_pdf(settings.output_dir / output_name)
-            conversion.output_size = (settings.output_dir / output_name).stat().st_size
-            db.add(conversion)
-        elif conversion.output_url and not (settings.output_dir / conversion.output_url).is_file():
-            create_sample_pdf(settings.output_dir / conversion.output_url)
-            conversion.output_size = (settings.output_dir / conversion.output_url).stat().st_size
+                ttl=None,
+            ))
         db.commit()
 
-    print("Demo users are ready (passwords are regenerated each time this script runs):")
-    for email, password in passwords.items():
-        print(f"  {email}: {password}")
+    print("Seeded demo data")
 
 
 if __name__ == "__main__":
