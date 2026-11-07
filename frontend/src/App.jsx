@@ -26,6 +26,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [lastUploadWasGuest, setLastUploadWasGuest] = useState(false);
   const fileInput = useRef(null);
   const modeRef = useRef(null);
 
@@ -97,11 +98,14 @@ export default function App() {
     setLoading(true);
     setError("");
     setNotice("");
+    setLastUploadWasGuest(false);
     const form = new FormData();
     form.append("file", file);
     try {
-      const result = await request(`/api/${modeRef.current}`, { method: "POST", body: form });
-      setNotice(`Job #${result.id} added to the queue.`);
+      const endpoint = guest ? "guest/convert" : modeRef.current;
+      const result = await request(`/api/${endpoint}`, { method: "POST", body: form });
+      setLastUploadWasGuest(guest);
+      setNotice(`Job #${result.job_id || result.id} added to the queue.`);
       await loadHistory();
     } catch (err) {
       setError(err.message);
@@ -116,6 +120,14 @@ export default function App() {
     setHistory([]);
   }
 
+  function saveGuestJobToAccount() {
+    setGuest(false);
+    setSignup(true);
+    setHistory([]);
+    setError("");
+    setNotice("");
+  }
+
   if (!user && !guest) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md items-center px-5">
@@ -123,6 +135,30 @@ export default function App() {
           <p className="text-sm font-bold uppercase tracking-widest text-indigo-600">Conprezer</p>
           <h1 className="mt-3 text-3xl font-bold">{signup ? "Create your account" : "Welcome back"}</h1>
           <p className="mt-2 text-slate-500">Your files stay private and are processed by your local service.</p>
+          <fieldset className="mt-6 rounded-xl border border-slate-200 p-4">
+            <legend className="px-1 text-sm font-medium">Choose how to continue</legend>
+            <label className="flex items-center gap-2 py-2 text-sm">
+              <input
+                type="radio"
+                name="access-mode"
+                value="account"
+                checked={!guest}
+                onChange={() => setGuest(false)}
+              />
+              Sign in or create an account
+            </label>
+            <label className={`flex items-center gap-2 py-2 text-sm ${guestModeEnabled ? "" : "text-slate-400"}`}>
+              <input
+                type="radio"
+                name="access-mode"
+                value="guest"
+                checked={guest}
+                disabled={!guestModeEnabled}
+                onChange={() => { setGuest(true); setError(""); }}
+              />
+              Continue as guest
+            </label>
+          </fieldset>
           <label className="mt-7 block text-sm font-medium">Email</label>
           <input required type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-indigo-500" />
           <label className="mt-4 block text-sm font-medium">Password (at least 8 characters)</label>
@@ -132,11 +168,6 @@ export default function App() {
           <button type="button" onClick={() => { setSignup(!signup); setError(""); }} className="mt-4 w-full text-sm text-slate-600 hover:text-indigo-600">
             {signup ? "Already have an account? Sign in" : "New here? Create an account"}
           </button>
-          {guestModeEnabled && (
-            <button type="button" onClick={() => { setGuest(true); setError(""); }} className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-600">
-              Continue as guest
-            </button>
-          )}
         </form>
       </main>
     );
@@ -169,6 +200,11 @@ export default function App() {
       <input ref={fileInput} type="file" accept={mode === "compress" ? ".pdf,application/pdf" : ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"} onChange={upload} className="hidden" />
       {loading && <p role="status" className="mt-5 text-sm text-indigo-600">Working…</p>}
       {notice && <p className="mt-5 text-sm text-emerald-700">{notice}</p>}
+      {lastUploadWasGuest && notice && (
+        <button onClick={saveGuestJobToAccount} className="mt-2 text-sm font-semibold text-indigo-600 hover:text-indigo-800">
+          Save to account
+        </button>
+      )}
       {error && <p role="alert" className="mt-5 text-sm text-red-600">{error}</p>}
       <section className="mt-10 rounded-2xl bg-white p-6 shadow-sm shadow-slate-200/70 md:p-8">
         <div className="flex items-center justify-between">
